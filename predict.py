@@ -6,7 +6,7 @@ parser = argparse.ArgumentParser(description="Predict network attacks using a tr
 parser.add_argument('-v', '--verbose', action='count', default=0,
                     help='Increase output verbosity. Use multiple times for more verbosity.')
 parser.add_argument('-t','--test_data', type=str,
-                    help='Path to the test data CSV file.',default="test_arp.csv")   
+                    help='Path to the test data CSV file.',default="")   
 parser.add_argument("-r",'--result', type=str,
                     help='Path to save the output results CSV file.',default="result.csv")
 parser.add_argument("-m",'--model', type=str,
