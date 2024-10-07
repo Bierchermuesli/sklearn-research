@@ -6,7 +6,7 @@ parser = argparse.ArgumentParser(description="Predict network attacks using a tr
 parser.add_argument('-v', '--verbose', action='count', default=0,
                     help='Increase output verbosity. Use multiple times for more verbosity.')
 parser.add_argument('-t','--test_data', type=str,
-                    help='Path to the test data CSV file.',default="")   
+                    help='Path to the test data CSV file.',default="test_random.csv")   
 parser.add_argument("-r",'--result', type=str,
                     help='Path to save the output results CSV file.',default="result.csv")
 parser.add_argument("-m",'--model', type=str,
@@ -35,25 +35,20 @@ if 'Attack_type' in new_data.columns:
 X_new_processed = preprocessor.transform(new_data)
 
 # do the predictions
-predictions = model.predict(X_new_processed)
+predictions_numeric = model.predict(X_new_processed)
 
 # Decode binary labels to original labels
-predicted_labels = label_encoder.inverse_transform(predictions)
+predicted_labels = label_encoder.inverse_transform(predictions_numeric)
 
 # Create a DataFrame for the results
 new_data['Predicted_Binary_Label'] = predicted_labels
-
-# If Attack, retain the original attack type (if known)
-new_data['Predicted_Attack_Type'] = new_data.apply(
-    lambda row: original_attack_type[row.name] if row['Predicted_Binary_Label'] == 'Attack' else '',
-    axis=1
-)
+new_data['Predicted_Binary'] = predictions_numeric
 
 print("-"*80+"\n# Prediction stats\n")
 if args.verbose > 1:
-    print(new_data[['Predicted_Binary_Label', 'Predicted_Attack_Type']])
+    print(new_data[['Predicted_Binary_Label', 'Predicted_Binary']])
 
-print(new_data.groupby('Predicted_Attack_Type')['Predicted_Attack_Type'].count().to_string())
+print(new_data.groupby('Predicted_Binary_Label')['Predicted_Binary_Label'].count().to_string())
 
 print(f"\nResults are also saved to {args.result}")
 new_data.to_csv(args.result, index=False)
