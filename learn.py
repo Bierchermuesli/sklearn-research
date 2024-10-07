@@ -29,7 +29,7 @@ attack_list = ["DOS_SYN_Hping", "ARP_poisioning", "NMAP_UDP_SCAN", "NMAP_XMAS_TR
 df['Binary_Label'] = df['Attack_type'].apply(lambda x: 'Normal' if x in normal_list else 'Attack' if x in attack_list else x)
 
 # Define features and labels
-X = df.drop(['Attack_type', 'Binary_Label'], axis=1)  # Drop original and binary label columns
+X = df.drop(['no','Attack_type', 'Binary_Label'], axis=1)  # Drop original and binary label columns
 y = df['Binary_Label']  # Use the binary label for training
 
 # Encode the binary labels
