@@ -11,7 +11,7 @@ scikit-learn = "*"
 seaborn = "*"
 xgboost = "*"
 joblib = "*"
-yaspin = "*"
+rich = "*"
 
 [dev-packages]
 

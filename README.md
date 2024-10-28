@@ -55,7 +55,7 @@ The dataset should include:
     * (according to authors also Amazon-Alexa but it is missing)
 
 
-### Learning Models
+### Trainig Models
  
 
 ```bash
@@ -180,7 +180,7 @@ Lets verify with only this traffic pattern:
 csvgrep -c 85 -m ARP_poisioning -a trainset/RT_IOT2022.csv > test_arp_poisening.csv
 
 python3 predict.py -t test_arp_poisening.csv
-FYI - Attack_type labels removed
+Labels removed!
 --------------------------------------------------------------------------------
 #Some stats
 
@@ -194,7 +194,7 @@ We see that 3008 flows are not regognized correctly
 ```bash
 csvgrep -c 85 -m DOS_SYN_Hping -a trainset/RT_IOT2022.csv > test_arp_dos_syn_hping.csv 
 python3 predict.py -t test_arp_dos_syn_hping.csv
-FYI - Attack_type labels removed
+Labels removed!
 --------------------------------------------------------------------------------
 # Prediction stats
 
@@ -209,7 +209,7 @@ Same bad rusults with the RandomForest model:
 
 ```bash
 python3 predict.py -t test_arp_poisening.csv -m model_randomforest.pkl
-FYI - Attack_type labels removed
+Labels removed!
 --------------------------------------------------------------------------------
 # Prediction stats
 
@@ -221,7 +221,7 @@ Normal            3008
 With the complex voting model, it looks much more precise, all attacks are corretly regognized: 
 ```bash
 python3 predict.py -t test_random.csv -m model_ensemble.pkl -vv
-FYI - Attack_type labels removed
+Labels removed!
 --------------------------------------------------------------------------------
 # Prediction stats
 
@@ -287,7 +287,10 @@ The 'single' generated model have troubles to detect certain attacks. It was pos
 
 ## ToN IoT
 
-This dataset is not so clean and has some not-so-nessessary features. In my opinion the common denominator is very low and its value very questionable. In the following scratch pad should show us the relevance of that features. I introduced a feature filter and implemented some data cleaning and normalizaion
+The [ToN_IoT](https://research.unsw.edu.au/projects/toniot-datasets) dataset is available for free use for academic research purposes.
+
+In a theoretical review, this dataset reveals some inaccuracies and questionable testbed methods. Nevertheless, it can still offer valuable data. In practice, this dataset is not entirely clean and contains too many unnecessary features. The common denominator among these features is relatively low, which raises questions about their value. In this scratch pad section, I would like to focus on the limitations of these features and measure their relevance.
+To address these issues, I introduced a feature filter and implemented data cleaning and normalization procedures. This revision corrects minor errors, improves sentence structure, and enhances overall readability.
 
 ### Train with all features
 
@@ -295,9 +298,29 @@ Trainig with all (44) features:
 
 ```bash
 python learn.py -d trainset/Ton_IoT_train_test_network.csv -vv --all-features
+
+Normal/Evil Ratio:
+   LABEL_BOOL   Count  Percentage
+          1  161043   76.308146
+          0   50000   23.691854
+
+Attack Type Ratio:
+        LABEL  Count  Percentage
+       normal  50000   23.691854
+     backdoor  20000    9.476742
+         ddos  20000    9.476742
+          dos  20000    9.476742
+    injection  20000    9.476742
+     password  20000    9.476742
+     scanning  20000    9.476742
+   ransomware  20000    9.476742
+          xss  20000    9.476742
+         mitm   1043    0.494212
+
+
 Rows: 211043
 Features: 44
-src_ip
+ - src_ip
  - src_port
  - dst_ip
  - dst_port
@@ -339,10 +362,11 @@ src_ip
  - weird_name
  - weird_addl
  - weird_notice
- - LABEL_BIN
+ - LABEL_BOOL
  - LABEL
+
 Labels: 10
-backdoor
+- backdoor
 - ddos
 - dos
 - injection
@@ -352,19 +376,10 @@ backdoor
 - ransomware
 - scanning
 - xss
-Prepping perceptron
-Accuracy: 0.6592
-Saving model to model_Perceptron()
-✔ 3.1s Create perceptron Model
-Prepping randomforest
-Accuracy: 0.9879
-Saving model to model_randomforest.pkl
-✔ 13.5s Create randomforest Model
-Prepping ensemble
-⠋ Create ensemble Model
-Accuracy: 0.951551
-Saving model to model_ensemble.pkl
-✔ 716.4s Create ensemble Model
+Create models:
+✔ perceptron crated. Accuracy: 0.6592 - 3.1s 
+✔ randomforest created. Accuracy: 0.9879 - 13.5s
+✔ ensemble created. Accuracy: 0.951551 - 716.4s
 ```
 
 
@@ -391,10 +406,11 @@ src_ip
  - src_ip_bytes
  - dst_pkts
  - dst_ip_bytes
- - LABEL_BIN
+ - LABEL_BOOL
  - LABEL
+
 Labels: 10
-backdoor
+- backdoor
 - ddos
 - dos
 - injection
@@ -404,69 +420,44 @@ backdoor
 - ransomware
 - scanning
 - xss
-Prepping perceptron
-Accuracy: 0.6234
-Saving model to model_Perceptron()
-✔ 2.3s Create perceptron Model
-Prepping randomforest
-Accuracy: 0.9874
-Saving model to model_randomforest.pkl
-✔ 14.2s Create randomforest Model
-Prepping ensemble
-⠇ Create ensemble Model
-Accuracy: 0.961193
-Saving model to model_ensemble.pkl
-✔ 675.2s Create ensemble Model
+Create models:
+✔ perceptron created. Accuracy: 0.6234 - 2.3s
+✔ randomforest created. Accuracy: 0.9874 - 14.2s
+✔ ensemble created Accuracy: 0.961193 - 675.2s
 ```
 
-===> the data models are more or less equal accurate.
+#### Training Summary:
+ - a reduced features set (44 vs 17 features) does not change the outcome of the training data (or at least it doesn't make it worse)
+ - the accuracy of each model is equal to 44 vs 17 feature:
+   - good rate on RandomForest and VotingClassifier esembled model
+   - poor on linear perceptron (expected)
+   - However: these are sill basic model without any tweaks
 
-### Testing with more/other data: 
 
-```
-head  -n 100001 Network_dataset_1.csv > Network_dataset_1_100k.csv
+### Predicting full datasets: 
 
-python3 predict.py -m model_ensemble.pkl -d Network_dataset_1_100k.csv -p preprocessor.pkl -e label_encoder.pkl  -a
+The dataset is splittet into 1Mio records per file. The file itself is very un-shuffled, each file is very inbalanced with a big Normal/Evil Ratio, usually each file contains one attack type. 
 
-Rows: 100000
-Label Encoder Classes we have:
-backdoor
-- ddos
-- dos
-- injection
-- mitm
-- normal
-- password
-- ransomware
-- scanning
-- xss
-Attack_type labels removed
-fix and normalize values
---------------------------------------------------------------------------------
-# Prediction stats
+<details>
+<summary>Network_dataset_1.csv: Accuracy: 79%</summary>
 
-PREDICT
-backdoor          4
-ddos            236
-dos               6
-injection        31
-mitm            626
-normal        75417
-password          5
-ransomware    23622
-scanning         14
-xss              38
+```python
+python3 predict.py -m model_ensemble.pkl -d Network_dataset_1.csv -vv
 
-Results saved to result.csv
-Accuracy of predictions: 0.7542
+Labled Normal/Evil Ratio:
+   LABEL_BOOL   Count  Percentage
+      True     791321     79.1321
+      False    208679     20.8679
 
-```
+ Labeled Type Ratio:
+      LABEL   Count  Percentage
+   scanning  791321     79.1321
+     normal  208679     20.8679
 
-```
-python3 predict.py -m model_ensemble.pkl -d Network_dataset_1.csv -p preprocessor.pkl -e label_encoder.pkl  -a
+✔ Labels removed!
 
 Rows: 1000000
-Label Encoder Classes we have:
+Labels Encoded:
 backdoor
 - ddos
 - dos
@@ -474,28 +465,92 @@ backdoor
 - mitm
 - normal
 - password
-- ransomware
+- rdetailansomware
 - scanning
 - xss
-Attack_type labels removed
-fix and normalize values
---------------------------------------------------------------------------------
-# Prediction stats
 
-PREDICT
-backdoor       12021
-ddos           11767
-dos            12906
-injection        822
-mitm            2510
-normal        245669
-password        1367
-ransomware     66549
-scanning      642789
-xss             3600
+Prediction Summary and Ratio:
+      PREDICT   Count  Percentage
+     scanning  642789     64.2789
+       normal  245669     24.5669
+   ransomware   66549      6.6549
+          dos   12906      1.2906
+     backdoor   12021      1.2021
+         ddos   11767      1.1767
+          xss    3600      0.3600
+         mitm    2510      0.2510
+     password    1367      0.1367
+    injection     822      0.0822
+
 
 Results saved to result.csv
-Accuracy of predictions: 0.7970
-```
 
-=> I also got the same (bad) result with all 44 features
+Accuracy of predictions: 0.7970
+
+Duration: 357.4s
+```
+</details>
+
+<details>
+<summary>Network_dataset_3.csv: Accuracy: 87%</summary>
+
+```python
+python3 predict.py -m model_ensemble.pkl -d Network_dataset_3.csv -vv
+Fix dataypes and normalize values
+
+Labled Normal/Evil Ratio:
+ LABEL_BOOL  Count  Percentage
+       True 997180      99.718
+      False   2820       0.282
+
+Labeled Type Ratio:
+   LABEL  Count  Percentage
+scanning 997180      99.718
+  normal   2820       0.282
+
+✔ Labels removed!
+
+Rows: 1000000 loaded
+Labels Encoded: 10
+ - backdoor
+ - ddos
+ - dos
+ - injection
+ - mitm
+ - normal
+ - password
+ - ransomware
+ - scanning
+ - xss
+duration: 363.3s
+
+Prediction Summary and Ratio:
+   PREDICT  Count  Percentage
+  scanning 871475     87.1475
+      ddos  54264      5.4264
+       xss  42550      4.2550
+ransomware   8058      0.8058
+  password   5299      0.5299
+    normal   5126      0.5126
+       dos   4620      0.4620
+  backdoor   4313      0.4313
+ injection   3538      0.3538
+      mitm    757      0.0757
+
+Results saved to result.csv
+Accuracy of predictions: 0.8743
+```
+</details>
+
+
+### Predicting Summary:
+ - Data nomalization and cleaning is nessessary due bad data and for performance improovment. 
+ - 70-90% accuraty on full datasets - not very good
+ - The datasets(-files) are unbalanced 
+ - The models are too basic, tweaking is nessessary
+ - quick tries without success:
+   - RandomForestClassifier/DecisionTreeClassifier: `class_weight='balanced'`
+   - VotingClassifier: `voting="soft"`
+   - MLPClassifier: `max_iter=500` due `ConvergenceWarning: Stochastic Optimizer: Maximum Iterations (200) reached and the optimization hasn't converged yet.` warnings
+      - Learning takes 30min...
+ 

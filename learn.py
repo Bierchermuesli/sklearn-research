@@ -3,11 +3,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder, LabelEncoder
 from sklearn.compose import ColumnTransformer
 import joblib
-from yaspin import yaspin
 import argparse
-
-import time
+from rich.console import Console
 from datetime import datetime
+
+console = Console()
 
 models = ["perceptron", "randomforest", "ensemble"]
 
@@ -19,23 +19,40 @@ parser.add_argument("-m", "--models", choices=models, default=models, nargs="+",
 args = parser.parse_args()
 
 
+
 # Load the dataset
 df = pd.read_csv(args.data_set)
 
 # do some data normlization. regognize the datasets by its fields...
 if {"label", "type"}.issubset(df.columns):
     # TON_IOT
-    df.rename(columns={"label": "LABEL_BIN", "type": "LABEL"}, inplace=True)
+    df.rename(columns={"label": "LABEL_BOOL", "type": "LABEL"}, inplace=True)
 
     # categorical columns
     categorical_columns = ["conn_state", "proto"]
 
+    console.print("Fix dataypes and normalize values")
+    # Specifing the dtype on pd.read_csv but we dont know the type at that time
     if not args.all_features:
         # we only care about  Connection and Statistical activity + labels
         df.drop(df.filter(regex="dns_*").columns, axis=1, inplace=True)
         df.drop(df.filter(regex="http_*").columns, axis=1, inplace=True)
         df.drop(df.filter(regex="ssl_*").columns, axis=1, inplace=True)
         df.drop(df.filter(regex="weird_*").columns, axis=1, inplace=True)
+
+    col_int = ["src_bytes", "dst_bytes", "dst_port", "src_port", "missed_bytes", "src_pkts", "src_ip_bytes", "dst_pkts", "dst_ip_bytes"]
+    col_float = ["duration", "dst_bytes"]
+    col_str = ["src_ip", "dst_ip","proto","service","conn_state","LABEL"]
+    col_bool = ['LABEL_BOOL']  # Replace with your boolean column names
+
+    for col in col_int:
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+    for col in col_float:
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0) 
+    for col in col_str:
+        df[col] = df[col].fillna("").astype(str)       
+    for col in col_bool:
+        df[col] = df[col].astype(bool)        
 
 elif {"Attack_type"}.issubset(df.columns):
     # RT_IOT
@@ -44,7 +61,7 @@ elif {"Attack_type"}.issubset(df.columns):
     # Relabel for binary classification and keep original attack types
     normal_list = ["MQTT_Publish", "Thing_Speak", "Wipro_bulb", "Amazon-Alexa", "TV"]
     attack_list = ["DOS_SYN_Hping", "ARP_poisioning", "NMAP_UDP_SCAN", "NMAP_XMAS_TREE_SCAN", "NMAP_OS_DETECTION", "NMAP_TCP_scan", "DDOS_Slowloris", "Metasploit_Brute_Force_SSH", "NMAP_FIN_SCAN"]
-    df["LABEL_BIN"] = df["LABEL"].apply(lambda x: "Normal" if x in normal_list else "Attack" if x in attack_list else x)
+    df["LABEL_BOOL"] = df["LABEL"].apply(lambda x: "Normal" if x in normal_list else "Attack" if x in attack_list else x)
 
     # categorical columns
     categorical_columns = ["proto", "service"]
@@ -54,16 +71,31 @@ elif {"Attack_type"}.issubset(df.columns):
         df.drop(["no"], inplace=True)
 
 else:
-    print("Dataset unknown")
+    console.print("Dataset unknown")
 
-print(f"Rows: {len(df)}")
-print(f"Features: {len(df.columns)}")
 if args.verbose > 1:
-    print("\n - ".join(df.columns.tolist()))
+    console.print("\nNormal/Evil Ratio:")
+    ratio = df['LABEL_BOOL'].value_counts().reset_index()
+    ratio.columns = ['LABEL_BOOL', 'Count']
+    ratio['Percentage'] = (ratio['Count'] / ratio['Count'].sum()) * 100
+    console.print(ratio.to_string(index=False))
+
+    console.print("\nAttack Type Ratio:")
+    ratio = df['LABEL'].value_counts().reset_index()
+    ratio.columns = ['LABEL', 'Count']
+    ratio['Percentage'] = (ratio['Count'] / ratio['Count'].sum()) * 100
+    console.print(ratio.to_string(index=False))
+
+
+
+console.print(f"Stats\n Rows: {len(df)}")
+console.print(f" Features: {len(df.columns)}")
+if args.verbose > 1:
+    console.print(" - " + "\n - ".join(df.columns.tolist()))
 
 
 # use features as x
-X = df.drop(["LABEL", "LABEL_BIN"], axis=1)
+X = df.drop(["LABEL", "LABEL_BOOL"], axis=1)
 #  The Labels for training
 y = df["LABEL"]
 
@@ -73,8 +105,8 @@ label = LabelEncoder()
 y_encoded = label.fit_transform(y)
 joblib.dump(label, "label_encoder.pkl")
 
-print(f"Labels: {len(label.classes_)}")
-print(f"\n- ".join(label.classes_))
+console.print(f"\nLabels: {len(label.classes_)}")
+console.print(f"- " + "\n- ".join(label.classes_))
 
 # Apply OneHotEncoder to categorical features and scale numerical features
 preprocessor = ColumnTransformer(transformers=[("num", MinMaxScaler(), X.select_dtypes(exclude=["object"]).columns), ("cat", OneHotEncoder(), categorical_columns)])
@@ -87,77 +119,65 @@ joblib.dump(preprocessor, "preprocessor.pkl")
 # Split the data into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(X_processed, y_encoded, test_size=0.2, random_state=42)
 
-for model in args.models:
+console.print("Create models:")
+console.line()
 
-    if model == "perceptron":
+for model_name in args.models:
+
+    if model_name == "perceptron":
         # Train a Perceptron model
         from sklearn.linear_model import Perceptron
 
-        with yaspin(text=f"Create {model} Model", color="yellow") as sp:
+        with console.status(f"[bold green]Working on {model_name}...") as status:
+            status.update(f"Prepping {model_name}")
             _start = datetime.now()
-            sp.write(f"Prepping {model}")
             model = Perceptron()
             model.fit(X_train, y_train)
             accuracy = model.score(X_test, y_test)
-            sp.write(f"Accuracy: {accuracy:.4f}")
-            sp.write(f"Saving model to model_{model}")
-            joblib.dump(model, f"model_{model}")
-            sp.ok(f"✔ {round((datetime.now()-_start).total_seconds(), 1)}s")
+            joblib.dump(model, f"model_{model_name}.pkl")
+            console.print(f"✔ {model_name} created. Accuracy: {accuracy:.4f} - {round((datetime.now()-_start).total_seconds(), 1)}s")
 
-    if model == "randomforest":
+    if model_name == "randomforest":
         # Train a RandomForest model
-        target = "model_randomforest.pkl"
         from sklearn.ensemble import RandomForestClassifier
 
-        with yaspin(text=f"Create {model} Model", color="yellow") as sp:
+        with console.status(f"[bold green]Working on {model_name}...") as status:
             _start = datetime.now()
-            sp.write(f"Prepping {model}")
-            model = RandomForestClassifier()
+            model = RandomForestClassifier() # no improove with class_weight='balanced' 
             model.fit(X_train, y_train)
             accuracy = model.score(X_test, y_test)
-            sp.write(f"Accuracy: {accuracy:.4f}")
-            sp.write(f"Saving model to {target}")
-            joblib.dump(model, target)
-            sp.ok(f"✔ {round((datetime.now()-_start).total_seconds(), 1)}s")
+            joblib.dump(model, f"model_{model_name}.pkl")
+            console.print(f"✔ {model_name} created. Accuracy: {accuracy:.4f} - {round((datetime.now()-_start).total_seconds(), 1)}s")
 
-    if model == "ensemble":
-        # lets add mooar more models
-        from sklearn.ensemble import VotingClassifier
-        from sklearn.ensemble import RandomForestClassifier
+    if model_name == "ensemble":
+        # Train a ensemble model with a VotingClassifier
+        from sklearn.linear_model import Perceptron, LogisticRegression
+        from sklearn.neural_network import MLPClassifier
+        from sklearn.ensemble import VotingClassifier, RandomForestClassifier
         from sklearn.tree import DecisionTreeClassifier
         from sklearn.neighbors import KNeighborsClassifier
-        from sklearn.linear_model import LogisticRegression
-        from sklearn.neural_network import MLPClassifier
-        from sklearn.metrics import accuracy_score
 
-        random_forest = RandomForestClassifier()
-        decision_tree = DecisionTreeClassifier()
-        knn = KNeighborsClassifier()
-        logistic_reg = LogisticRegression(max_iter=1000)
-        mlp_classifier = MLPClassifier(hidden_layer_sizes=(100, 50), activation="relu", solver="adam", random_state=42)
-
-        # Create a list of models for VotingClassifier
+        # Define individual models with updated max_iter
         models = [
-            ("Random Forest", random_forest),
-            ("Decision Tree", decision_tree),
-            ("KNN", knn),
-            ("Logistic Regression", logistic_reg),
-            ("MLP Classifier", mlp_classifier),
+            ("Random Forest", RandomForestClassifier()),
+            ("Decision Tree", DecisionTreeClassifier()),
+            ("KNN", KNeighborsClassifier()),
+            ("Logistic Regression", LogisticRegression(max_iter=300)),  # Updated max_iter
+            ("MLP Classifier", MLPClassifier(hidden_layer_sizes=(100, 50), max_iter=500)),  # Updated max_iter
+            ("Perceptron", Perceptron(max_iter=300))  # Updated max_iter
         ]
 
-        target = "model_ensemble.pkl"
-        with yaspin(text=f"Create {model} Model", color="yellow") as sp:
+        ensemble_model = VotingClassifier(estimators=models, voting="hard")
+        
+        with console.status(f"[bold green]Working on {model_name}...") as status:
             _start = datetime.now()
-            sp.write(f"Prepping {model}")
             # Initialize VotingClassifier with the list of models
-            model = VotingClassifier(estimators=models, voting="hard")
+            model = VotingClassifier(estimators=models, voting="hard") # no improove with soft 
             # Train the VotingClassifier
             model.fit(X_train, y_train)
             # Make predictions using the VotingClassifier
             y_pred = model.predict(X_test)
             # Evaluate accuracy
             accuracy = accuracy_score(y_test, y_pred)
-            sp.write(f"Accuracy: {accuracy:.6f}")
-            joblib.dump(model, target)
-            sp.write(f"Saving model to {target}")
-            sp.ok(f"✔ {round((datetime.now()-_start).total_seconds(), 1)}s")
+            joblib.dump(model, f"model_{model_name}.pkl")
+            console.print(f"✔ {model_name} created. Accuracy: {accuracy:.4f} - {round((datetime.now()-_start).total_seconds(), 1)}s")
