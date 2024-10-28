@@ -4,7 +4,7 @@
 This repo has some sample code to test and compare datasets.
 
 
-I decided to work with scikit-learn and adopted some model samples  [from here](https://www.kaggle.com/code/navyeesh/kothoju-navyeesh-rt-iot2022) [Apache 2.0 ](https://www.apache.org/licenses/LICENSE-2.0) and add some of my  enhancements:
+I decided to work with scikit-learn and adopted some model samples  [from here](https://www.kaggle.com/code/navyeesh/kothoju-navyeesh-rt-iot2022) ([Apache 2.0 ](https://www.apache.org/licenses/LICENSE-2.0)) I added some of my  enhancements:
 
   * add a OneHotEncoder for better handling with missing(?), categorical or numerical features
  * Included a binary label to differentiate between Normal and Attack traffic pattern
@@ -12,6 +12,8 @@ I decided to work with scikit-learn and adopted some model samples  [from here](
  * Implemented model saving functionality with joblib
  * Organized the code for better clarity and to accommodate additional models
  * Added some command-line arguments
+ * data normalization
+ * per dataset options
  * a fancy spinner!
  
  currently basic models are in use. 
@@ -285,11 +287,11 @@ The 'single' generated model have troubles to detect certain attacks. It was pos
 
 ## ToN IoT
 
-This dataset is not so clean and has some not-so-nessessary features (44 in total). the common denominator is very low and its value very questionable. I introduced a filter which removes all `http_*`,`ssl_*`,`weird_*`,`dns_*` (=17 features). The following comparision shows the relevance of that features.
+This dataset is not so clean and has some not-so-nessessary features. In my opinion the common denominator is very low and its value very questionable. In the following scratch pad should show us the relevance of that features. I introduced a feature filter and implemented some data cleaning and normalizaion
 
 ### Train with all features
 
-I introducing some datacleaning to avoid errors and added a filter to drop some not-so-nessessary features. It can be disabled with `-a/--all-features`. 
+Trainig with all (44) features:
 
 ```bash
 python learn.py -d trainset/Ton_IoT_train_test_network.csv -vv --all-features
@@ -367,6 +369,8 @@ Saving model to model_ensemble.pkl
 
 
 ### Train with limited features
+
+With the filter enabled (default), all `http_*`,`ssl_*`,`weird_*`,`dns_*` features are removed: 
 
 ```bash
 python learn.py -d trainset/Ton_IoT_train_test_network.csv -vv
