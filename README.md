@@ -300,9 +300,9 @@ Trainig with all (44) features:
 python learn.py -d trainset/Ton_IoT_train_test_network.csv -vv --all-features
 
 Normal/Evil Ratio:
-   LABEL_BOOL   Count  Percentage
-          1  161043   76.308146
-          0   50000   23.691854
+ LABEL_BOOL  Count  Percentage
+       True 161043   76.308146
+      False  50000   23.691854
 
 Attack Type Ratio:
         LABEL  Count  Percentage
@@ -388,10 +388,27 @@ Create models:
 With the filter enabled (default), all `http_*`,`ssl_*`,`weird_*`,`dns_*` features are removed: 
 
 ```bash
-python learn.py -d trainset/Ton_IoT_train_test_network.csv -vv
-Rows: 211043
-Features: 17
-src_ip
+Normal/Evil Ratio:
+ LABEL_BOOL  Count  Percentage
+       True 161043   76.308146
+      False  50000   23.691854
+
+Attack Type Ratio:
+     LABEL  Count  Percentage
+    normal  50000   23.691854
+  backdoor  20000    9.476742
+      ddos  20000    9.476742
+       dos  20000    9.476742
+ injection  20000    9.476742
+  password  20000    9.476742
+  scanning  20000    9.476742
+ransomware  20000    9.476742
+       xss  20000    9.476742
+      mitm   1043    0.494212
+Stats
+ Rows: 211043
+ Features: 17
+ - src_ip
  - src_port
  - dst_ip
  - dst_port
@@ -408,8 +425,8 @@ src_ip
  - dst_ip_bytes
  - LABEL_BOOL
  - LABEL
+ Labels: 10
 
-Labels: 10
 - backdoor
 - ddos
 - dos
@@ -421,9 +438,10 @@ Labels: 10
 - scanning
 - xss
 Create models:
+
 ✔ perceptron created. Accuracy: 0.6234 - 2.3s
-✔ randomforest created. Accuracy: 0.9874 - 14.2s
-✔ ensemble created Accuracy: 0.961193 - 675.2s
+✔ randomforest created. Accuracy: 0.9877 - 15.2s
+✔ ensemble created. Accuracy: 0.961193 - 675.2s
 ```
 
 #### Training Summary:
@@ -543,7 +561,7 @@ Accuracy of predictions: 0.8743
 </details>
 
 
-### Predicting Summary:
+#### Predicting Summary:
  - Data nomalization and cleaning is nessessary due bad data and for performance improovment. 
  - 70-90% accuraty on full datasets - not very good
  - The datasets(-files) are unbalanced 
