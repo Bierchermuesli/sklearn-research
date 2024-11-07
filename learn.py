@@ -2,6 +2,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder, LabelEncoder
 from sklearn.compose import ColumnTransformer
+from sklearn.metrics import accuracy_score
 import joblib
 import argparse
 from rich.console import Console
@@ -9,7 +10,7 @@ from datetime import datetime
 
 console = Console()
 
-models = ["perceptron", "randomforest", "ensemble"]
+models = ["perceptron", "randomforest", "ensemble","xgboost"]
 
 parser = argparse.ArgumentParser(description="Predict network attacks using a trained model.")
 parser.add_argument("-v", "--verbose", action="count", default=0, help="Increase output verbosity. Use multiple times for more verbosity.")
@@ -157,6 +158,7 @@ for model_name in args.models:
         from sklearn.tree import DecisionTreeClassifier
         from sklearn.neighbors import KNeighborsClassifier
 
+
         # Define individual models with updated max_iter
         models = [
             ("Random Forest", RandomForestClassifier()),
@@ -181,3 +183,35 @@ for model_name in args.models:
             accuracy = accuracy_score(y_test, y_pred)
             joblib.dump(model, f"model_{model_name}.pkl")
             console.print(f"✔ {model_name} created. Accuracy: {accuracy:.4f} - {round((datetime.now()-_start).total_seconds(), 1)}s")
+
+    if model_name == "xgboost":
+        import xgboost as xgb
+        _start = datetime.now()
+        # Load and preprocess your data
+        # data = pd.read_csv("your_dataset.csv")
+        # X = data.drop("target_column", axis=1)  # Replace 'target_column' with your target label column
+        # y = data["target_column"]
+
+        # Encode labels if needed (assuming binary classification: 'Attack' and 'Normal')
+        # label_encoder = LabelEncoder()
+        # y = label_encoder.fit_transform(y)  # Converts 'Attack'/'Normal' to 1/0
+
+        # # Train-test split
+        # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+        # Initialize the XGBoost classifier with imbalance handling
+        model = xgb.XGBClassifier(
+            objective="binary:logistic",
+            eval_metric="logloss",
+            max_depth=6,
+            n_estimators=100,
+            learning_rate=0.1
+        )
+        # Train the model
+        model.fit(X_train, y_train)
+
+        # Predict and evaluate
+        y_pred = model.predict(X_test)
+        accuracy = accuracy_score(y_test, y_pred)
+        joblib.dump(model, f"model_{model_name}.pkl")
+        console.print(f"✔ {model_name} created. Accuracy: {accuracy:.4f} - {round((datetime.now()-_start).total_seconds(), 1)}s")
