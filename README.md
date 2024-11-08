@@ -1,12 +1,29 @@
 
 # ML / Dataset research
 
-This repo has some sample code to test and compare datasets.
+This repo contains some sample code for testing and comparing datasets and ML algorithms.
+
+The following README.md is a top-down summary of progress.
+
+## Install
+To use this reserach code:
+```bash
+git pull https://github.com/Bierchermuesli/sklearn-research
+cd sklearn-research
+pipenv shell 
+pipenv install
+```
+
+
+## RT-IoT2022 Dataset research
+
+<details>
+<summary>A summary of inital setup and RT-IoT research.... </summary>
 
 
 I decided to work with scikit-learn and adopted some model samples  [from here](https://www.kaggle.com/code/navyeesh/kothoju-navyeesh-rt-iot2022) ([Apache 2.0 ](https://www.apache.org/licenses/LICENSE-2.0)) I added some of my  enhancements:
 
-  * add a OneHotEncoder for better handling with missing(?), categorical or numerical features
+ * add a OneHotEncoder for better handling with missing(?), categorical or numerical features
  * Included a binary label to differentiate between Normal and Attack traffic pattern
  * Created a dedicated encoder and preprocessor pipeline for reuse in prediction tasks
  * Implemented model saving functionality with joblib
@@ -23,17 +40,7 @@ In the current sample, the following models are generated:
  * RandomForest
  * A VotingClassifier combining Random Forest, Decision Tree, KNN, and MLP Classifier
 
-## Install
-To use this reserach code:
-```bash
-git pull https://github.com/Bierchermuesli/sklearn-research
-cd sklearn-research
-pipenv shell 
-pipenv install
-```
 
-
-## RT-IoT2022 Dataset research
 
 This is a ML training Proof of concept with RT-IoT2022 Dataset. This dataset is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and can be found on [Kaggle](https://www.kaggle.com/datasets/supplejade/rt-iot2022real-time-internet-of-things) or its origin from [UC Irvine Machine Learning Repository](https://archive.ics.uci.edu/dataset/942/rt-iot2022). 
 
@@ -284,6 +291,7 @@ The 'single' generated model have troubles to detect certain attacks. It was pos
    * `DDOS_Slowloris`: contains `udp/dhcp`, `udp/dns`traffic
    * etc
 
+</details>
 
 ## ToN IoT
 
@@ -294,7 +302,8 @@ To address these issues, I introduced a feature filter and implemented data clea
 
 ### Train with all features
 
-Trainig with all (44) features:
+<details>
+<summary>Trainig with all (44) features: Accuracy 95%</summary>
 
 ```bash
 python learn.py -d trainset/Ton_IoT_train_test_network.csv -vv --all-features
@@ -381,11 +390,14 @@ Create models:
 ✔ randomforest created. Accuracy: 0.9879 - 13.5s
 ✔ ensemble created. Accuracy: 0.951551 - 716.4s
 ```
+</details>
 
 
 ### Train with limited features
+<details>
+<summary>Accuracy with only 17 Featrues: 95%</summary>
 
-With the filter enabled (default), all `http_*`,`ssl_*`,`weird_*`,`dns_*` features are removed: 
+ Wheit the filter enabled (default) all `http_*`,`ssl_*`,`weird_*`,`dns_*` features are removed.
 
 ```bash
 Normal/Evil Ratio:
@@ -443,6 +455,7 @@ Create models:
 ✔ randomforest created. Accuracy: 0.9877 - 15.2s
 ✔ ensemble created. Accuracy: 0.961193 - 675.2s
 ```
+</details>
 
 #### Training Summary:
  - a reduced features set (44 vs 17 features) does not change the outcome of the training data (or at least it doesn't make it worse)
@@ -452,14 +465,14 @@ Create models:
    - However: these are sill basic model without any tweaks
 
 
-### Predicting full datasets: 
+### Predicting full (inbalanced) datasets: 
 
-The dataset is splittet into 1Mio records per file. The file itself is very un-shuffled, each file is very inbalanced with a big Normal/Evil Ratio, usually each file contains one attack type. 
+The main dataset is splittet into 1Mio records per file. Each file is very unblanced with different Normal/Evil Ratio and usually just one-two attack type. Therefore the prediction result are not so good: 
 
 <details>
 <summary>Network_dataset_1.csv: Accuracy: 79%</summary>
 
-```python
+```bash
 python3 predict.py -m model_ensemble.pkl -d Network_dataset_1.csv -vv
 
 Labled Normal/Evil Ratio:
@@ -512,7 +525,7 @@ Duration: 357.4s
 <details>
 <summary>Network_dataset_3.csv: Accuracy: 87%</summary>
 
-```python
+```bash
 python3 predict.py -m model_ensemble.pkl -d Network_dataset_3.csv -vv
 Fix dataypes and normalize values
 
@@ -560,7 +573,6 @@ Accuracy of predictions: 0.8743
 ```
 </details>
 
-
 #### Predicting Summary:
  - Data nomalization and cleaning is nessessary due bad data and for performance improovment. 
  - 70-90% accuraty on full datasets - not very good
@@ -571,4 +583,104 @@ Accuracy of predictions: 0.8743
    - VotingClassifier: `voting="soft"`
    - MLPClassifier: `max_iter=500` due `ConvergenceWarning: Stochastic Optimizer: Maximum Iterations (200) reached and the optimization hasn't converged yet.` warnings
       - Learning takes 30min...
- 
+  - XGBoost performance is factor 84
+
+### Introducing XGBoost
+
+Several papers mentioned XGBoost for its accuarity and well performance, this can be confirmed on the training dataset: 
+
+```bash
+python3 predict.py -d trainsets/Ton_IoT_train_test_network.csv -m model_xgboost.pkl
+✔  Labels removed!
+
+Rows: 211043 loaded
+duration: 2.3s
+
+Results saved to result.csv
+Accuracy of predictions: 0.9891
+```
+Comparing to the VotingClassifier:
+
+```
+python3 predict.py -d trainsets/Ton_IoT_train_test_network.csv -m model_ensemble.pkl
+✔  Labels removed!
+
+Rows: 211043 loaded
+duration: 195.6s
+
+Results saved to result.csv
+Accuracy of predictions: 0.9664
+```
+#### XGBoost Summary:
+
+The Performance gain is huge! hight accuracy applies to train set but also not to the big dataset files. 
+
+
+
+### Predicting with (pre-balanced) datasets: 
+
+I tried to 'pre-balance' the dataset for a 'more or less' same amount of bad/evil data by selecting at leastt n-records of each label: 
+```
+python3 create-balaced-data.py -c "datasets/ToN/Network*.csv" -s 10000
+Parsing datasets/ToN/Network_dataset_23.csv: 'type' in  this file: backdoor, normal, mitm
+Parsing datasets/ToN/Network_dataset_17.csv: 'type' in  this file: ddos, normal
+Parsing datasets/ToN/Network_dataset_2.csv: 'type' in  this file: scanning, normal
+Parsing datasets/ToN/Network_dataset_8.csv: 'type' in  this file: scanning, normal, dos
+Parsing datasets/ToN/Network_dataset_9.csv: 'type' in  this file: dos, normal
+Parsing datasets/ToN/Network_dataset_3.csv: 'type' in  this file: scanning, normal
+Parsing datasets/ToN/Network_dataset_21.csv: 'type' in  this file: xss, normal
+Parsing datasets/ToN/Network_dataset_1.csv: 'type' in  this file: normal, scanning
+Parsing datasets/ToN/Network_dataset_20.csv: 'type' in  this file: password, normal, xss
+Parsing datasets/ToN/Network_dataset_16.csv: 'type' in  this file: ddos, normal
+Parsing datasets/ToN/Network_dataset_4.csv: 'type' in  this file: scanning, normal
+Parsing datasets/ToN/Network_dataset_18.csv: 'type' in  this file: ddos, normal, password
+Parsing datasets/ToN/Network_dataset_6.csv: 'type' in  this file: scanning, normal
+Parsing datasets/ToN/Network_dataset_10.csv: 'type' in  this file: dos, normal
+Parsing datasets/ToN/Network_dataset_7.csv: 'type' in  this file: scanning, normal
+Parsing datasets/ToN/Network_dataset_14.csv: 'type' in  this file: ddos, normal
+Parsing datasets/ToN/Network_dataset_15.csv: 'type' in  this file: ddos, normal
+Parsing datasets/ToN/Network_dataset_5.csv: 'type' in  this file: scanning, normal
+Parsing datasets/ToN/Network_dataset_13.csv: 'type' in  this file: ddos, normal
+Parsing datasets/ToN/Network_dataset_11.csv: 'type' in  this file: dos, normal, injection
+Parsing datasets/ToN/Network_dataset_12.csv: 'type' in  this file: injection, normal, ddos
+Parsing datasets/ToN/Network_dataset_19.csv: 'type' in  this file: password, normal
+Summary for datasets/balanced.csv
+type
+normal        170400
+scanning       80000
+ddos           70000
+dos            40000
+password       30000
+xss            30000
+backdoor       20000
+injection      20000
+ransomware     10000
+mitm            1052
+```
+
+Testing with the new XGBoost model: 
+```bash
+python3 predict.py -d datasets/balanced.csv -m model_xgboost.pkl
+Fix dataypes and normalize values
+
+✔  Labels removed!
+
+Rows: 471452 loaded
+duration: 2.4s
+
+Results saved to result.csv
+Accuracy of predictions: 0.7117
+```
+
+
+further balancing methods I tried: 
+   - balance the output .csv a second time to get 10000 of each type (however normal vs evil would be inbalanced): ~0.7
+   - balance the output .csv a second time by label (0,1) get an balanced bad/evil amount: ~0.8
+   - balance at first by label `-r label` instead of type to get an equal amount of bad/evil by each file: 0.7209
+   - take from each type in each file a random amount of data `--random` --> Accuracy 0.7
+   - everything with bigger/smaller amount `-s`
+
+#### Balancing summary: 
+A balanced data set would not solve our problem of inaccuracy. And by this said; a pre-balancing is not a real-world scenario, the model has to deal with that anyway.
+
+Are the models bad or is the data set meaningless?
