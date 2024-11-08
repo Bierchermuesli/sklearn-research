@@ -601,7 +601,7 @@ Accuracy of predictions: 0.9891
 ```
 Comparing to the VotingClassifier:
 
-```
+```bash
 python3 predict.py -d trainsets/Ton_IoT_train_test_network.csv -m model_ensemble.pkl
 ✔  Labels removed!
 
@@ -622,28 +622,28 @@ The Performance gain is huge! hight accuracy applies to train set but also not t
 I tried to 'pre-balance' the dataset for a 'more or less' same amount of bad/evil data by selecting at leastt n-records of each label: 
 ```
 python3 create-balaced-data.py -c "datasets/ToN/Network*.csv" -s 10000
-Parsing datasets/ToN/Network_dataset_23.csv: 'type' in  this file: backdoor, normal, mitm
-Parsing datasets/ToN/Network_dataset_17.csv: 'type' in  this file: ddos, normal
-Parsing datasets/ToN/Network_dataset_2.csv: 'type' in  this file: scanning, normal
-Parsing datasets/ToN/Network_dataset_8.csv: 'type' in  this file: scanning, normal, dos
-Parsing datasets/ToN/Network_dataset_9.csv: 'type' in  this file: dos, normal
-Parsing datasets/ToN/Network_dataset_3.csv: 'type' in  this file: scanning, normal
-Parsing datasets/ToN/Network_dataset_21.csv: 'type' in  this file: xss, normal
-Parsing datasets/ToN/Network_dataset_1.csv: 'type' in  this file: normal, scanning
-Parsing datasets/ToN/Network_dataset_20.csv: 'type' in  this file: password, normal, xss
-Parsing datasets/ToN/Network_dataset_16.csv: 'type' in  this file: ddos, normal
-Parsing datasets/ToN/Network_dataset_4.csv: 'type' in  this file: scanning, normal
-Parsing datasets/ToN/Network_dataset_18.csv: 'type' in  this file: ddos, normal, password
-Parsing datasets/ToN/Network_dataset_6.csv: 'type' in  this file: scanning, normal
-Parsing datasets/ToN/Network_dataset_10.csv: 'type' in  this file: dos, normal
-Parsing datasets/ToN/Network_dataset_7.csv: 'type' in  this file: scanning, normal
-Parsing datasets/ToN/Network_dataset_14.csv: 'type' in  this file: ddos, normal
-Parsing datasets/ToN/Network_dataset_15.csv: 'type' in  this file: ddos, normal
-Parsing datasets/ToN/Network_dataset_5.csv: 'type' in  this file: scanning, normal
-Parsing datasets/ToN/Network_dataset_13.csv: 'type' in  this file: ddos, normal
-Parsing datasets/ToN/Network_dataset_11.csv: 'type' in  this file: dos, normal, injection
-Parsing datasets/ToN/Network_dataset_12.csv: 'type' in  this file: injection, normal, ddos
-Parsing datasets/ToN/Network_dataset_19.csv: 'type' in  this file: password, normal
+Parsing datasets/ToN/Network_dataset_23.csv: 'type' in this file: backdoor, normal, mitm
+Parsing datasets/ToN/Network_dataset_17.csv: 'type' in this file: ddos, normal
+Parsing datasets/ToN/Network_dataset_2.csv: 'type' in this file: scanning, normal
+Parsing datasets/ToN/Network_dataset_8.csv: 'type' in this file: scanning, normal, dos
+Parsing datasets/ToN/Network_dataset_9.csv: 'type' in this file: dos, normal
+Parsing datasets/ToN/Network_dataset_3.csv: 'type' in this file: scanning, normal
+Parsing datasets/ToN/Network_dataset_21.csv: 'type' in this file: xss, normal
+Parsing datasets/ToN/Network_dataset_1.csv: 'type' in this file: normal, scanning
+Parsing datasets/ToN/Network_dataset_20.csv: 'type' in this file: password, normal, xss
+Parsing datasets/ToN/Network_dataset_16.csv: 'type' in this file: ddos, normal
+Parsing datasets/ToN/Network_dataset_4.csv: 'type' in this file: scanning, normal
+Parsing datasets/ToN/Network_dataset_18.csv: 'type' in this file: ddos, normal, password
+Parsing datasets/ToN/Network_dataset_6.csv: 'type' in this file: scanning, normal
+Parsing datasets/ToN/Network_dataset_10.csv: 'type' in this file: dos, normal
+Parsing datasets/ToN/Network_dataset_7.csv: 'type' in this file: scanning, normal
+Parsing datasets/ToN/Network_dataset_14.csv: 'type' in this file: ddos, normal
+Parsing datasets/ToN/Network_dataset_15.csv: 'type' in this file: ddos, normal
+Parsing datasets/ToN/Network_dataset_5.csv: 'type' in this file: scanning, normal
+Parsing datasets/ToN/Network_dataset_13.csv: 'type' in this file: ddos, normal
+Parsing datasets/ToN/Network_dataset_11.csv: 'type' in this file: dos, normal, injection
+Parsing datasets/ToN/Network_dataset_12.csv: 'type' in this file: injection, normal, ddos
+Parsing datasets/ToN/Network_dataset_19.csv: 'type' in this file: password, normal
 Summary for datasets/balanced.csv
 type
 normal        170400
@@ -672,7 +672,6 @@ Results saved to result.csv
 Accuracy of predictions: 0.7117
 ```
 
-
 further balancing methods I tried: 
    - balance the output .csv a second time to get 10000 of each type (however normal vs evil would be inbalanced): ~0.7
    - balance the output .csv a second time by label (0,1) get an balanced bad/evil amount: ~0.8
@@ -681,6 +680,6 @@ further balancing methods I tried:
    - everything with bigger/smaller amount `-s`
 
 #### Balancing summary: 
-A balanced data set would not solve our problem of inaccuracy. And by this said; a pre-balancing is not a real-world scenario, the model has to deal with that anyway.
+A balanced data set would not solve our problem of inaccuracy. And with that said; a pre-balancing is not a real-world scenario, the model has to deal with it anyway.
 
 Are the models bad or is the data set meaningless?
