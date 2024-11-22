@@ -8,12 +8,11 @@ from rich.console import Console
 
 parser = argparse.ArgumentParser(description="Predict network attacks using a trained model.")
 parser.add_argument("-v", "--verbose", action="count", default=0, help="Increase output verbosity. Use multiple times for more verbosity.")
-parser.add_argument("-d", "--data", type=str, help="Path to the test data CSV file.", default="test_random.csv")
+parser.add_argument("-d", "--data", type=str, help="Path to the test data CSV file.", default="datasets/ToN/windows10_dataset.csv")
 parser.add_argument("-r", "--result", type=str, help="Path to save the output results CSV file.", default="result.csv")
-parser.add_argument("-a", "--all-features", action="store_true", default=False, help="Use all featrues which are in the dataset...")
-parser.add_argument("-m", "--model", type=str, help="Model to use", default="model_perceptron.pkl")
-parser.add_argument("-p", "--preprocessor", type=str, help="Preprocessor to use", default="preprocessor.pkl")
-parser.add_argument("-e", "--encoder", type=str, help="Encoder to use", default="label_encoder_44.pkl")
+parser.add_argument("-m", "--model", type=str, help="Model to use", default="model_xgboost-win.pkl")
+parser.add_argument("-p", "--preprocessor", type=str, help="Preprocessor to use", default="preprocessor-win.pkl")
+parser.add_argument("-e", "--encoder", type=str, help="Encoder to use", default="label_encoder-win.pkl")
 args = parser.parse_args()
 
 
@@ -27,53 +26,47 @@ preprocessor = joblib.load(args.preprocessor)
 model = joblib.load(args.model)
 label_encoder = joblib.load(args.encoder)
 
-
 # Do some per-dataset cleaning
 if {"label", "type"}.issubset(df.columns):
     # TON_IOT
-
     df.rename(columns={"label": "LABEL_BOOL", "type": "LABEL"}, inplace=True)
 
-    if not args.all_features:
-        # we only care about  Connection and Statistical activity + labels
-        df.drop(df.filter(regex="dns_*").columns, axis=1, inplace=True)
-        df.drop(df.filter(regex="http_*").columns, axis=1, inplace=True)
-        df.drop(df.filter(regex="ssl_*").columns, axis=1, inplace=True)
-        df.drop(df.filter(regex="weird_*").columns, axis=1, inplace=True)
+    # Replace "(Intel R _82574L_GNC)" with nothing in the header
+    df.columns = df.columns.str.replace(r"\(Intel R _82574L_GNC\)", "", regex=True)
+    df.columns = df.columns.str.replace(r"\(_Total\)", "", regex=True)
 
-    console.print("Fix dataypes and normalize values")
-    # Specifing the dtype on pd.read_csv but we dont know the type at that time
-    col_int = ["src_bytes", "dst_bytes", "dst_port", "src_port", "missed_bytes", "src_pkts", "src_ip_bytes", "dst_pkts", "dst_ip_bytes"]
-    col_float = ["duration", "dst_bytes"]
-    col_str = ["src_ip", "dst_ip","proto","service","conn_state","LABEL"]
-    col_bool = ['LABEL_BOOL']  # Replace with your boolean column names
-
-    for col in col_int:
-        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
-    for col in col_float:
-        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0) 
-    for col in col_str:
-        df[col] = df[col].fillna("").astype(str)       
-    for col in col_bool:
-        df[col] = df[col].astype(bool)
-
-    #if not args.all_features:
-    df.drop(columns=["dst_ip", "src_ip","service"], inplace=True)        
+    # Drop columns that contain only empty strings or zeros
+    df = df.loc[:, (df != 0).any(axis=0)]
+    df = df.loc[:, (df != "").any(axis=0)]
 
 
-elif {"Attack_type"}.issubset(df.columns):
-    # RT_IOT2022
-    df.rename(columns={"Attack_type": "LABEL"}, inplace=True)
+    df = df.drop(["ts"], axis=1)
+    #Drop othere nonsense
+    df.drop(df.filter(regex="Processor_pct_ C._Time").columns, axis=1, inplace=True)
+    df.drop(df.filter(regex=".*ransitions_sec").columns, axis=1, inplace=True)
+    df.drop(df.filter(regex=".*Current Bandwidth").columns, axis=1, inplace=True)
 
-    # drop unneeded features
-    if not args.all_features:
-        df.drop(["no"], inplace=True)
-        df.drop(["src_ip"], inplace=True)
-        df.drop(["dst_ip"], inplace=True)
+    # Select columns of type "object"
+    object_columns = df.select_dtypes(include=["object"]).columns
+    # Select columns matching the regex pattern
+    regex_columns = df.filter(regex=".*_.*").columns
+    # Combine both filters using set intersection
+    combined_columns = object_columns.intersection(regex_columns)
+
+    # Select columns of type "object"
+    object_columns = df.select_dtypes(include=["object"]).columns
+    # Select columns matching the regex pattern
+    regex_columns = df.filter(regex="LABEL.*").columns
+    # Combine both filters using set intersection
+    combined_columns = object_columns.difference(regex_columns)
+
+    for col in combined_columns:
+        # Force all other columns as float as they are all numerical
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
         
 if args.verbose > 2:
     console.print("Data Types")
-    console.print(df.dtypes.to_string(index=False))
+    console.print(df.dtypes.to_string(index=True))
 
 if args.verbose > 1:
     console.print("\nLabled Normal/Evil Ratio:")
@@ -87,6 +80,8 @@ if args.verbose > 1:
     ratio['Percentage'] = (ratio['Count'] / ratio['Count'].sum()) * 100
     console.print(ratio.to_string(index=False))
 
+    console.print("\nData Types:")
+    console.print(df.dtypes.to_string(index=True))
 
 original_attack_type = df["LABEL"].copy()
 df = df.drop(["LABEL", "LABEL_BOOL"], axis=1)

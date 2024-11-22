@@ -16,73 +16,53 @@ models = ["perceptron", "randomforest", "ensemble","xgboost"]
 
 parser = argparse.ArgumentParser(description="Predict network attacks using a trained model.")
 parser.add_argument("-v", "--verbose", action="count", default=0, help="Increase output verbosity. Use multiple times for more verbosity.")
-parser.add_argument("-d", "--data-set", type=str, help="Path to the data set CSV file.", default="trainset/Ton_IoT_train_test_network.csv")
-parser.add_argument("-a", "--all-features", action="store_true", default=False, help="Use all featrues which are in the dataset...")
+parser.add_argument("-d", "--data-set", type=str, help="Path to the data set CSV file.", default="trainsets/Train_Test_Windows_10.csv")
 parser.add_argument("-m", "--models", choices=models, default=models, nargs="+", help="Models to generate")
 args = parser.parse_args()
 
 
-
 # Load the dataset
 df = pd.read_csv(args.data_set)
+console.print(f" Features: {len(df.columns)}")
+
 
 # do some data normlization. regognize the datasets by its fields...
 if {"label", "type"}.issubset(df.columns):
     # TON_IOT
     df.rename(columns={"label": "LABEL_BOOL", "type": "LABEL"}, inplace=True)
 
-    # categorical columns
-    categorical_columns = ["conn_state", "proto"]
+    # Replace "(Intel R _82574L_GNC)" with nothing in the header
+    df.columns = df.columns.str.replace(r"\(Intel R _82574L_GNC\)", "", regex=True)
+    df.columns = df.columns.str.replace(r"\(_Total\)", "", regex=True)
 
-    console.print("Fix dataypes and normalize values")
-    # Specifing the dtype on pd.read_csv but we dont know the type at that time
-    if not args.all_features:
-        # we only care about  Connection and Statistical activity + labels
-        df.drop(df.filter(regex="dns_*").columns, axis=1, inplace=True)
-        df.drop(df.filter(regex="http_*").columns, axis=1, inplace=True)
-        df.drop(df.filter(regex="ssl_*").columns, axis=1, inplace=True)
-        df.drop(df.filter(regex="weird_*").columns, axis=1, inplace=True)
+    # Drop columns that contain only empty strings or zeros
+    df = df.loc[:, (df != 0).any(axis=0)]
+    df = df.loc[:, (df != "").any(axis=0)]
 
-    col_int = ["src_bytes", "dst_bytes", "dst_port", "src_port", "missed_bytes", "src_pkts", "src_ip_bytes", "dst_pkts", "dst_ip_bytes"]
-    col_float = ["duration", "dst_bytes"]
-    col_str = ["src_ip", "dst_ip","proto","service","conn_state","LABEL"]
-    col_bool = ['LABEL_BOOL']  # Replace with your boolean column names
-
-    for col in col_int:
-        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
-    for col in col_float:
-        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0) 
-    for col in col_str:
-        df[col] = df[col].fillna("").astype(str)       
-    for col in col_bool:
-        df[col] = df[col].astype(bool)
-    
-    # Drop columns dst_ip and src_ip
-    df.drop(columns=["dst_ip", "src_ip","service"], inplace=True)
-    if not args.all_features:
-        #df.drop(columns=["dst_ip", "src_ip","service"], inplace=True)
-        df.drop(df.filter(regex=".*_bytes").columns, axis=1, inplace=True)
-        df.drop(df.filter(regex=".*_pkts").columns, axis=1, inplace=True)
+    #Drop othere nonsense
+    df.drop(df.filter(regex="Processor_pct_ C._Time").columns, axis=1, inplace=True)
+    df.drop(df.filter(regex=".*ransitions_sec").columns, axis=1, inplace=True)
+    df.drop(df.filter(regex=".*Current Bandwidth").columns, axis=1, inplace=True)
 
 
-elif {"Attack_type"}.issubset(df.columns):
-    # RT_IOT
-    df.rename(columns={"Attack_type": "LABEL"}, inplace=True)
+    # Select columns of type "object"
+    object_columns = df.select_dtypes(include=["object"]).columns
+    # Select columns matching the regex pattern
+    regex_columns = df.filter(regex="LABEL.*").columns
+    # Combine both filters using set intersection
+    combined_columns = object_columns.difference(regex_columns)
 
-    # Relabel for binary classification and keep original attack types
-    normal_list = ["MQTT_Publish", "Thing_Speak", "Wipro_bulb", "Amazon-Alexa", "TV"]
-    attack_list = ["DOS_SYN_Hping", "ARP_poisioning", "NMAP_UDP_SCAN", "NMAP_XMAS_TREE_SCAN", "NMAP_OS_DETECTION", "NMAP_TCP_scan", "DDOS_Slowloris", "Metasploit_Brute_Force_SSH", "NMAP_FIN_SCAN"]
-    df["LABEL_BOOL"] = df["LABEL"].apply(lambda x: "Normal" if x in normal_list else "Attack" if x in attack_list else x)
-
-    # categorical columns
-    categorical_columns = ["proto", "service"]
-
-    if not args.all_features:
-        # drop unneeded features
-        df.drop(["no"], inplace=True)
-
+    for col in combined_columns:
+        # Force all other columns as float as they are all numerical
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
 else:
     console.print("Dataset unknown")
+
+
+if args.verbose > 2:
+    console.print("Data Types")
+    console.print(df.dtypes.to_string(index=True))
+
 
 if args.verbose > 1:
     console.print("\nNormal/Evil Ratio:")
@@ -97,12 +77,10 @@ if args.verbose > 1:
     ratio['Percentage'] = (ratio['Count'] / ratio['Count'].sum()) * 100
     console.print(ratio.to_string(index=False))
 
+    console.print(f"Stats\n Rows: {len(df)}")
+    console.print(f" Features: {len(df.columns)}")
 
 
-console.print(f"Stats\n Rows: {len(df)}")
-console.print(f" Features: {len(df.columns)}")
-if args.verbose > 1:
-    console.print(" - " + "\n - ".join(df.columns.tolist()))
 
 X = df.drop(["LABEL", "LABEL_BOOL"], axis=1)
 y = df["LABEL"]
@@ -110,7 +88,7 @@ y = df["LABEL"]
 # Encode the binary labels
 label = LabelEncoder()
 y_encoded = label.fit_transform(y)
-joblib.dump(label, "label_encoder.pkl")
+joblib.dump(label, "label_encoder-win.pkl")
 
 console.print(f"\nLabels: {len(label.classes_)}")
 console.print(f"- " + "\n- ".join(label.classes_))
@@ -121,7 +99,7 @@ correlation_matrix = X[numerical_columns].corr()
 
 # Plot the correlation matrix
 plt.figure(figsize=(10, 8))
-sns.heatmap(correlation_matrix, annot=True, cmap="BuPu", fmt=".2f", square=True)
+sns.heatmap(correlation_matrix, annot=False, cmap="BuPu", square=True)
 plt.title("Feature Correlation Matrix")
 plt.show()
 
@@ -138,10 +116,10 @@ preprocessor = ColumnTransformer(
 X_processed = preprocessor.fit_transform(X)
 
 # Save the preprocessor for future predictions
-joblib.dump(preprocessor, "preprocessor.pkl")
+joblib.dump(preprocessor, "preprocessor-win.pkl")
 
 # Split the data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X_processed, y_encoded, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X_processed, y_encoded, test_size=0.4, random_state=42)
 
 for model_name in args.models:
 
@@ -155,7 +133,7 @@ for model_name in args.models:
             model = Perceptron()
             model.fit(X_train, y_train)
             accuracy = model.score(X_test, y_test)
-            joblib.dump(model, f"model_{model_name}.pkl")
+            joblib.dump(model, f"model_{model_name}-win.pkl")
             console.print(f"✔ {model_name} created. Accuracy: {accuracy:.4f} - {round((datetime.now()-_start).total_seconds(), 1)}s")
 
     elif model_name == "randomforest":
@@ -167,7 +145,7 @@ for model_name in args.models:
             model = RandomForestClassifier() # no improove with class_weight='balanced' 
             model.fit(X_train, y_train)
             accuracy = model.score(X_test, y_test)
-            joblib.dump(model, f"model_{model_name}.pkl")
+            joblib.dump(model, f"model_{model_name}-win.pkl")
             console.print(f"✔ {model_name} created. Accuracy: {accuracy:.4f} - {round((datetime.now()-_start).total_seconds(), 1)}s")
 
     elif model_name == "ensemble":
@@ -201,7 +179,7 @@ for model_name in args.models:
             y_pred = model.predict(X_test)
             # Evaluate accuracy
             accuracy = accuracy_score(y_test, y_pred)
-            joblib.dump(model, f"model_{model_name}.pkl")
+            joblib.dump(model, f"model_{model_name}-win.pkl")
             console.print(f"✔ {model_name} created. Accuracy: {accuracy:.4f} - {round((datetime.now()-_start).total_seconds(), 1)}s")
 
     elif model_name == "xgboost":
@@ -219,5 +197,5 @@ for model_name in args.models:
             model.fit(X_train, y_train)
             y_pred = model.predict(X_test)
             accuracy = accuracy_score(y_test, y_pred)
-            joblib.dump(model, f"model_{model_name}.pkl")
+            joblib.dump(model, f"model_{model_name}-win.pkl")
             console.print(f"✔ {model_name} created. Accuracy: {accuracy:.4f} - {round((datetime.now()-_start).total_seconds(), 1)}s")

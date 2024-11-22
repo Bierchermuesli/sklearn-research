@@ -683,3 +683,129 @@ further balancing methods I tried:
 A balanced data set would not solve our problem of inaccuracy. And with that said; a pre-balancing is not a real-world scenario, the model has to deal with it anyway.
 
 Are the models bad or is the data set meaningless?
+
+
+### Win/Linux/IoT Datasets
+
+There are some subts sets which are obious usles however, I did a trial on them: 
+
+#### IoT Fridge
+
+```
+python3 learn-iot.py -m xgboost -d trainsets/Train_Test_IoT_Fridge.csv
+
+Stats
+ Rows: 39944
+ Features: 4
+
+Labels: 7
+- backdoor
+- ddos
+- injection
+- normal
+- password
+- ransomware
+- xss
+✔ xgboost created. Accuracy: 0.4934 - 1.3s
+```
+
+Label colleration; nothing much to expect here...
+![alt text](img/iot-fridge.png)
+
+```
+python3 predict-iot.py -d datasets/ToN/IoT_Fridge.csv
+Fix dataypes and normalize values
+
+✔  Labels removed!
+
+Rows: 587076 loaded
+duration: 1.5s
+
+Results saved to result.csv
+Accuracy of predictions: 0.6870
+```
+huh. better accuracy than the training set...
+
+
+#### Windows 
+The windows Data has about 126 features, everthing int or float numbers - i would not expect much here...
+```
+python3 learn-win.py -d trainsets/Train_Test_Windows_10.csv -m xgboost
+Initial Features: 126
+Normal/Evil Ratio:
+ LABEL_BOOL  Count  Percentage
+          1  11104   52.615618
+          0  10000   47.384382
+
+Attack Type Ratio:
+    LABEL  Count  Percentage
+   normal  10000   47.384382
+     ddos   4608   21.834723
+ password   3628   17.191054
+      xss   1269    6.013078
+injection    612    2.899924
+      dos    525    2.487680
+ scanning    447    2.118082
+     mitm     15    0.071077
+Stats
+ Rows: 21104
+ Features: 108
+
+
+Labels: 8
+- ddos
+- dos
+- injection
+- mitm
+- normal
+- password
+- scanning
+- xss
+✔ xgboost created. Accuracy: 1.0000 - 3.4s
+```
+100% ? - the the nerd learns everything by heart?
+
+![alt text](img/win.png)
+
+```
+python3 predict-win.py -d datasets/ToN/windows10_dataset.csv 
+
+✔  Labels removed!
+
+Rows: 35975 loaded
+duration: 0.2s
+
+Results saved to result.csv
+Accuracy of predictions: 0.7744
+```
+
+
+#### Linux Proc
+
+```
+python3 learn-linux-proc.py -m xgboost -d trainsets/Train_Test_Linux_process.csv
+Features: 16
+
+Labels: 8
+- ddos
+- dos
+- injection
+- mitm
+- normal
+- password
+- scanning
+- xss
+✔ xgboost created. Accuracy: 0.9139 - 4.9s
+```
+
+![alt text](img/linux-proc.png)
+```
+python3 predict-linux-proc.py -d datasets/ToN/Linux_process_1.csv
+
+
+Rows: 1000000 loaded
+duration: 13.3s
+
+Accuracy of predictions: 0.7223
+```
+
