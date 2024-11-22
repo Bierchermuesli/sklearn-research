@@ -687,9 +687,11 @@ Are the models bad or is the data set meaningless?
 
 ### Win/Linux/IoT Datasets
 
-There are some subts sets which are obious usles however, I did a trial on them: 
+The dataset has several subsets which are obious usles. The correlation to an attack is a bit questionable... However... lets give them a try...
 
 #### IoT Fridge
+
+the IoT Fride contains only temperature data and trigger value. 
 
 ```
 python3 learn-iot.py -m xgboost -d trainsets/Train_Test_IoT_Fridge.csv
@@ -708,9 +710,10 @@ Labels: 7
 - xss
 ✔ xgboost created. Accuracy: 0.4934 - 1.3s
 ```
-
-Label colleration; nothing much to expect here...
+Nothing much to expect here. Label colleration: 
 ![alt text](img/iot-fridge.png)
+
+
 
 ```
 python3 predict-iot.py -d datasets/ToN/IoT_Fridge.csv
@@ -778,7 +781,7 @@ duration: 0.2s
 Results saved to result.csv
 Accuracy of predictions: 0.7744
 ```
-
+not bad results with just "randomness" of data
 
 #### Linux Proc
 
@@ -809,3 +812,4 @@ duration: 13.3s
 Accuracy of predictions: 0.7223
 ```
 
+not that bad...
