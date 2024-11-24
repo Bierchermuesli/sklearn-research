@@ -827,7 +827,19 @@ Fix dataypes and normalize values
 Stats
  Rows: 211043
  Features: 14
-
+ - src_port
+ - dst_port
+ - proto
+ - duration
+ - src_bytes
+ - dst_bytes
+ - conn_state
+ - missed_bytes
+ - src_pkts
+ - src_ip_bytes
+ - dst_pkts
+ - dst_ip_bytes
+ 
 Labels: 10
 - 0: backdoor
 - 1: ddos
@@ -859,10 +871,10 @@ Results saved to result.csv and delta_result.csv
 ![Multi Classifier](img/xgboost-multi.png)
 
 ### binary classifier
-Introducing `-b/--binary` switch for that. It creates a `_binary` suffix for model and label encder
+Introducing `-b/--binary` switch for that. It creates a `_binary` suffix for model and label encoder files. 
 
 ```
-python3 learn.py -m xgboost -b
+python3 learn.py -m xgboost -b -v
 Fix dataypes and normalize values
 Stats
  Rows: 211043
