@@ -12,13 +12,15 @@ import matplotlib.pyplot as plt
 
 console = Console()
 
-models = ["perceptron", "randomforest", "ensemble","xgboost"]
+models = ["perceptron", "randomforest", "ensemble", "xgboost"]
 
 parser = argparse.ArgumentParser(description="Predict network attacks using a trained model.")
 parser.add_argument("-v", "--verbose", action="count", default=0, help="Increase output verbosity. Use multiple times for more verbosity.")
-parser.add_argument("-d", "--data-set", type=str, help="Path to the data set CSV file.", default="trainset/Ton_IoT_train_test_network.csv")
+parser.add_argument("-d", "--data-set", type=str, help="Path to the data set CSV file.", default="trainsets/Ton_IoT_train_test_network.csv")
 parser.add_argument("-a", "--all-features", action="store_true", default=False, help="Use all featrues which are in the dataset...")
-parser.add_argument("-m", "--models", choices=models, default=models, nargs="+", help="Models to generate")
+parser.add_argument("-m", "--models", choices=models, default=[models[-1]], nargs="+", help="Models to generate")
+parser.add_argument("-b", "--binary", action="store_true", default=False, help="Do binary instead of multi-class")
+parser.add_argument("-g", "--gfx", action="store_true", default=False, help="Print nice graphs")
 args = parser.parse_args()
 
 
@@ -59,10 +61,11 @@ if {"label", "type"}.issubset(df.columns):
     
     # Drop columns dst_ip and src_ip
     df.drop(columns=["dst_ip", "src_ip","service"], inplace=True)
-    if not args.all_features:
-        #df.drop(columns=["dst_ip", "src_ip","service"], inplace=True)
-        df.drop(df.filter(regex=".*_bytes").columns, axis=1, inplace=True)
-        df.drop(df.filter(regex=".*_pkts").columns, axis=1, inplace=True)
+
+    # if we go extreem...
+    # df.drop(columns=["dst_ip", "src_ip","service"], inplace=True)
+    # df.drop(df.filter(regex=".*_bytes").columns, axis=1, inplace=True)
+    # df.drop(df.filter(regex=".*_pkts").columns, axis=1, inplace=True)
 
 
 elif {"Attack_type"}.issubset(df.columns):
@@ -104,44 +107,73 @@ console.print(f" Features: {len(df.columns)}")
 if args.verbose > 1:
     console.print(" - " + "\n - ".join(df.columns.tolist()))
 
-X = df.drop(["LABEL", "LABEL_BOOL"], axis=1)
-y = df["LABEL"]
 
-# Encode the binary labels
-label = LabelEncoder()
-y_encoded = label.fit_transform(y)
-joblib.dump(label, "label_encoder.pkl")
+if args.gfx:
+    correlation_matrix = df.select_dtypes(exclude=["object"]).corr()
+
+    # Plot the correlation matrix
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(correlation_matrix, annot=True, cmap="BuPu", fmt=".2f", square=True)
+    plt.title("Feature Correlation Matrix")
+    plt.show()
+
+## prepping for learning
+X = df.drop(["LABEL", "LABEL_BOOL"], axis=1)
+#Y
+if args.binary:
+    y = df["LABEL_BOOL"]
+
+    label = LabelEncoder()
+    y = label.fit_transform(y)
+else:
+    y = df["LABEL"]
+
+    label = LabelEncoder()
+    y = label.fit_transform(y)
 
 console.print(f"\nLabels: {len(label.classes_)}")
-console.print(f"- " + "\n- ".join(label.classes_))
+for i, label_class in enumerate(label.classes_):
+    console.print(f"- {i}: {label_class}")
 
-# Select numerical features for correlation matrix
-numerical_columns = X.select_dtypes(exclude=["object"]).columns
-correlation_matrix = X[numerical_columns].corr()
+if args.gfx:
+    # Plot the distribution of labels
+    plt.figure(figsize=(10, 6))
+    sns.countplot(x=y)
+    plt.title("Distribution of Labels")
+    plt.xlabel("Labels")
+    plt.ylabel("Count")
+    plt.xticks(rotation=45)
+    plt.show()
 
-# Plot the correlation matrix
-plt.figure(figsize=(10, 8))
-sns.heatmap(correlation_matrix, annot=True, cmap="BuPu", fmt=".2f", square=True)
-plt.title("Feature Correlation Matrix")
-plt.show()
+joblib.dump(label, f"label_encoder{'_binary' if args.binary else 'multi'}.pkl")
 
 # Apply OneHotEncoder to categorical features and scale numerical features
+numerical_columns = X.select_dtypes(exclude=["object"]).columns
 categorical_columns = X.select_dtypes(include=["object"]).columns
+
 preprocessor = ColumnTransformer(
     transformers=[
         ("num", MinMaxScaler(), numerical_columns),
         ("cat", OneHotEncoder(), categorical_columns)
     ]
 )
-
-# Process the features
 X_processed = preprocessor.fit_transform(X)
 
 # Save the preprocessor for future predictions
-joblib.dump(preprocessor, "preprocessor.pkl")
+joblib.dump(preprocessor, f"preprocessor.pkl")
+
+if args.gfx and args.verbose > 3:
+    for cat_col in categorical_columns:
+        for num_col in numerical_columns:
+            plt.figure(figsize=(8, 5))
+            sns.boxplot(x=X[cat_col], y=X[num_col])
+            plt.title(f"{num_col} vs {cat_col}")
+            plt.xticks(rotation=45)
+            plt.show()
+
 
 # Split the data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X_processed, y_encoded, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X_processed, y, test_size=0.2, random_state=42)
 
 for model_name in args.models:
 
@@ -155,7 +187,7 @@ for model_name in args.models:
             model = Perceptron()
             model.fit(X_train, y_train)
             accuracy = model.score(X_test, y_test)
-            joblib.dump(model, f"model_{model_name}.pkl")
+            joblib.dump(model, f"model_{model_name}{'_binary' if args.binary else ''}.pkl")
             console.print(f"✔ {model_name} created. Accuracy: {accuracy:.4f} - {round((datetime.now()-_start).total_seconds(), 1)}s")
 
     elif model_name == "randomforest":
@@ -167,7 +199,7 @@ for model_name in args.models:
             model = RandomForestClassifier() # no improove with class_weight='balanced' 
             model.fit(X_train, y_train)
             accuracy = model.score(X_test, y_test)
-            joblib.dump(model, f"model_{model_name}.pkl")
+            joblib.dump(model, f"model_{model_name}{'_binary' if args.binary else ''}.pkl")
             console.print(f"✔ {model_name} created. Accuracy: {accuracy:.4f} - {round((datetime.now()-_start).total_seconds(), 1)}s")
 
     elif model_name == "ensemble":
@@ -201,7 +233,7 @@ for model_name in args.models:
             y_pred = model.predict(X_test)
             # Evaluate accuracy
             accuracy = accuracy_score(y_test, y_pred)
-            joblib.dump(model, f"model_{model_name}.pkl")
+            joblib.dump(model, f"model_{model_name}{'_binary' if args.binary else ''}.pkl")
             console.print(f"✔ {model_name} created. Accuracy: {accuracy:.4f} - {round((datetime.now()-_start).total_seconds(), 1)}s")
 
     elif model_name == "xgboost":
@@ -219,5 +251,5 @@ for model_name in args.models:
             model.fit(X_train, y_train)
             y_pred = model.predict(X_test)
             accuracy = accuracy_score(y_test, y_pred)
-            joblib.dump(model, f"model_{model_name}.pkl")
+            joblib.dump(model, f"model_{model_name}{'_binary' if args.binary else ''}.pkl")
             console.print(f"✔ {model_name} created. Accuracy: {accuracy:.4f} - {round((datetime.now()-_start).total_seconds(), 1)}s")

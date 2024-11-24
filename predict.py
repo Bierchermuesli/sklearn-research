@@ -8,12 +8,13 @@ from rich.console import Console
 
 parser = argparse.ArgumentParser(description="Predict network attacks using a trained model.")
 parser.add_argument("-v", "--verbose", action="count", default=0, help="Increase output verbosity. Use multiple times for more verbosity.")
-parser.add_argument("-d", "--data", type=str, help="Path to the test data CSV file.", default="test_random.csv")
+parser.add_argument("-d", "--data", type=str, help="Path to the test data CSV file.", default="datasets/balanced-fix1000.csv")
 parser.add_argument("-r", "--result", type=str, help="Path to save the output results CSV file.", default="result.csv")
 parser.add_argument("-a", "--all-features", action="store_true", default=False, help="Use all featrues which are in the dataset...")
-parser.add_argument("-m", "--model", type=str, help="Model to use", default="model_perceptron.pkl")
+parser.add_argument("-m", "--model", type=str, help="Model to use", default="model_xgboost.pkl")
 parser.add_argument("-p", "--preprocessor", type=str, help="Preprocessor to use", default="preprocessor.pkl")
-parser.add_argument("-e", "--encoder", type=str, help="Encoder to use", default="label_encoder_44.pkl")
+parser.add_argument("-e", "--encoder", type=str, help="Encoder to use", default="label_encoder.pkl")
+parser.add_argument("-b", "--binary", action="store_true", default=False, help="Do binary instead of multi-class")
 args = parser.parse_args()
 
 
@@ -57,7 +58,6 @@ if {"label", "type"}.issubset(df.columns):
     for col in col_bool:
         df[col] = df[col].astype(bool)
 
-    #if not args.all_features:
     df.drop(columns=["dst_ip", "src_ip","service"], inplace=True)        
 
 
@@ -88,7 +88,9 @@ if args.verbose > 1:
     console.print(ratio.to_string(index=False))
 
 
+original_attack_type_binary = df["LABEL_BOOL"].copy()
 original_attack_type = df["LABEL"].copy()
+
 df = df.drop(["LABEL", "LABEL_BOOL"], axis=1)
 console.line()
 console.print("[red]✔[/red]  Labels removed!")
@@ -97,7 +99,10 @@ console.print(f"\nRows: {len(df)} loaded")
 if args.verbose > 0:
     console.print(f"Labels Encoded: {len(label_encoder.classes_)}")
     if args.verbose > 1:
-        console.print(" - " + f"\n - ".join(label_encoder.classes_))
+        console.print("Label Encoder Classes:")
+        for cls in label_encoder.classes_:
+#            if isinstance(cls, bool):
+            console.print(f"- {cls}")
 
 
 with console.status("[bold green] Predict the data...") as status:
@@ -116,10 +121,12 @@ with console.status("[bold green] Predict the data...") as status:
 
 # Create a DataFrame for the results
 df["PREDICT"] = predicted_labels
-df["PREDICT_INT"] = predictions_numeric
+df["PREDICT_BOOL"] = predictions_numeric
 
 # re attach the original label
 df["ORG_LABEL"] = original_attack_type
+df["ORG_LABEL_BOOL"] = original_attack_type_binary
+
 
 if args.verbose > 1:
     console.print("\nPrediction Summary and Ratio:")
@@ -128,10 +135,26 @@ if args.verbose > 1:
     ratio['Percentage'] = (ratio['Count'] / ratio['Count'].sum()) * 100
     console.print(ratio.to_string(index=False))
 
-console.print(f"\nResults saved to {args.result}")
-df.to_csv(args.result, index=False)
 
-accuracy = accuracy_score(original_attack_type, df["PREDICT"])
+
+if args.binary:
+    accuracy = accuracy_score(original_attack_type_binary, predicted_labels)
+    correct_predictions = (original_attack_type_binary == predicted_labels).sum()
+    incorrect_predictions = (original_attack_type_binary != predicted_labels).sum()
+    delta_df = df[df["PREDICT_BOOL"] != df["ORG_LABEL_BOOL"]]
+else:    
+    accuracy = accuracy_score(original_attack_type, predicted_labels)
+    correct_predictions = (original_attack_type == predicted_labels).sum() 
+    incorrect_predictions = (original_attack_type != predicted_labels).sum()
+    delta_df = df[df["PREDICT"] != df["ORG_LABEL"]]
+
 
 console.print(f"Accuracy of predictions: {accuracy:.4f}")
+console.print(f" Correct: {correct_predictions}")
+console.print(f" Incorrect : {incorrect_predictions}")
+
+console.print(f"\nResults saved to {args.result} and delta_{args.result}")
+df.to_csv(args.result, index=False)
+
+delta_df.to_csv(f"delta_{args.result}", index=False)
 
