@@ -813,3 +813,92 @@ Accuracy of predictions: 0.7223
 ```
 
 not that bad...
+
+
+## Binary vs multiclass classifiers
+
+Binary vs multiclass classifiers with 14 most relevant features and xgbost algo. 
+
+### multiclass classifiers 
+nothing new here, just to compare.
+```
+python3 learn.py -m xgboost
+Fix dataypes and normalize values
+Stats
+ Rows: 211043
+ Features: 14
+
+Labels: 10
+- 0: backdoor
+- 1: ddos
+- 2: dos
+- 3: injection
+- 4: mitm
+- 5: normal
+- 6: password
+- 7: ransomware
+- 8: scanning
+- 9: xss
+✔ xgboost created. Accuracy: 0.9875 - 76.9s
+```
+performance on non-training data around 70%
+```
+ython3 predict.py -d datasets/balanced.csv
+Fix dataypes and normalize values
+
+✔  Labels removed!
+
+Rows: 400400 loaded
+duration: 5.7s
+Accuracy of predictions: 0.7209
+ Correct: 288629
+ Incorrect : 111771
+
+Results saved to result.csv and delta_result.csv
+
+``` 
+### binary classifier
+Introducing `-b/--binary` switch for that. It creates a `_binary` suffix for model and label encder
+
+```
+python3 learn.py -m xgboost -b
+Fix dataypes and normalize values
+Stats
+ Rows: 211043
+ Features: 14
+
+Labels: 2
+- 0: False
+- 1: True
+✔ xgboost created. Accuracy: 0.9977 - 8.8s
+```
+
+Results are mindblowing: 
+```
+python3 predict.py -d datasets/balanced.csv -e label_encoder_binary.pkl -m model_xgboost_binary.pkl -b
+Fix dataypes and normalize values
+
+✔  Labels removed!
+
+Rows: 400400 loaded
+duration: 1.3s
+Accuracy of predictions: 0.9471
+ Correct: 379232
+ Incorrect : 21168
+```
+
+It goes also well with inbalaced data:
+```
+python3 predict.py -d datasets/ToN/Network_dataset_8.csv -e label_encoder_binary.pkl -m model_xgboost_binary.pkl -b
+Fix dataypes and normalize values
+
+✔  Labels removed!
+
+Rows: 1000000 loaded
+duration: 3.3s
+Accuracy of predictions: 0.9818
+ Correct: 981843
+ Incorrect : 18157
+
+Results saved to result.csv and delta_result.csv
+```
