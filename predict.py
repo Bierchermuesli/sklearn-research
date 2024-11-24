@@ -1,7 +1,9 @@
 import pandas as pd
 import joblib
 import argparse
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
+import seaborn as sns
+import matplotlib.pyplot as plt
 from datetime import datetime
 from rich import print
 from rich.console import Console
@@ -15,6 +17,7 @@ parser.add_argument("-m", "--model", type=str, help="Model to use", default="mod
 parser.add_argument("-p", "--preprocessor", type=str, help="Preprocessor to use", default="preprocessor.pkl")
 parser.add_argument("-e", "--encoder", type=str, help="Encoder to use", default="label_encoder.pkl")
 parser.add_argument("-b", "--binary", action="store_true", default=False, help="Do binary instead of multi-class")
+parser.add_argument("-g", "--gfx", action="store_true", default=False, help="Print nice graphs")
 args = parser.parse_args()
 
 
@@ -142,16 +145,28 @@ if args.binary:
     correct_predictions = (original_attack_type_binary == predicted_labels).sum()
     incorrect_predictions = (original_attack_type_binary != predicted_labels).sum()
     delta_df = df[df["PREDICT_BOOL"] != df["ORG_LABEL_BOOL"]]
+    cm = confusion_matrix(original_attack_type_binary, predicted_labels)
 else:    
     accuracy = accuracy_score(original_attack_type, predicted_labels)
     correct_predictions = (original_attack_type == predicted_labels).sum() 
     incorrect_predictions = (original_attack_type != predicted_labels).sum()
     delta_df = df[df["PREDICT"] != df["ORG_LABEL"]]
+    cm = confusion_matrix(original_attack_type, predicted_labels)
 
 
 console.print(f"Accuracy of predictions: {accuracy:.4f}")
 console.print(f" Correct: {correct_predictions}")
 console.print(f" Incorrect : {incorrect_predictions}")
+
+if args.gfx:
+    plt.figure(figsize=(5, 5))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=label_encoder.classes_, yticklabels=label_encoder.classes_)
+    plt.xlabel("Predicted")
+    plt.xticks(rotation=45)    
+    plt.ylabel("Actual")
+    plt.title("Confusion Matrix")
+    plt.tight_layout()
+    plt.show()
 
 console.print(f"\nResults saved to {args.result} and delta_{args.result}")
 df.to_csv(args.result, index=False)

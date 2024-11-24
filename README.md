@@ -855,8 +855,9 @@ Accuracy of predictions: 0.7209
  Incorrect : 111771
 
 Results saved to result.csv and delta_result.csv
-
 ``` 
+![Multi Classifier](img/xgboost-multi.png)
+
 ### binary classifier
 Introducing `-b/--binary` switch for that. It creates a `_binary` suffix for model and label encder
 
@@ -902,3 +903,5 @@ Accuracy of predictions: 0.9818
 
 Results saved to result.csv and delta_result.csv
 ```
+
+![Binary Classifier](img/xgboost-binary.png)
